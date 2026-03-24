@@ -1,15 +1,8 @@
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { DM_Sans, Fraunces } from "next/font/google";
+import { Toaster } from "react-hot-toast";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import Navbar from "@/components/Navbar";
 
 export const metadata = {
   title: "Velvet Heart AI Companion | AI Waifu Chat App",
@@ -68,13 +61,35 @@ export const metadata = {
   metadataBase: new URL("https://yourdomain.com"),
 };
 
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+});
+
+// This layout applies the shared app shell, fonts, and top navigation.
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className={`${dmSans.variable} ${fraunces.variable} app-shell font-sans antialiased`}>
+        <div className="min-h-screen">
+          <Navbar />
+          {children}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: "#ffffff",
+                color: "#1f2937",
+                border: "1px solid rgba(42, 47, 58, 0.08)",
+              },
+            }}
+          />
+        </div>
       </body>
     </html>
   );

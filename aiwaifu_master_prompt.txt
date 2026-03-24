@@ -1,0 +1,261 @@
+# 🌸 AI Waifu SaaS Platform — Full Build Prompt
+
+## Project Overview
+Build a full-stack AI Waifu SaaS web application where users can sign up,
+pick an AI female character (waifu), and have flirty/romantic/friendly
+conversations with them. Each character has a unique personality powered
+by an LLM. The platform is freemium — free users get limited messages,
+paid users get unlimited access.
+
+---
+
+## 🛠️ Tech Stack (All Free Tier)
+- Frontend: Next js [JAVASCRIPT] Tailwind CSS + shadcn/ui
+- Backend: Node.js + Express
+- AI: Groq API (model: llama3-70b-8192) — FREE
+- Database + Auth: firebase (PostgreSQL + Supabase Auth)
+- Hosting: Vercel (frontend) + Render (backend)
+- Payments: paypal (free to set up)
+
+---
+
+
+
+## 🗄️ Supabase Database Schema
+
+### Table: profiles
+- id          uuid (references auth.users)
+- username    text
+- plan        text DEFAULT 'free'  -- 'free' or 'pro'
+- created_at  timestamp
+
+### Table: characters
+- id            uuid
+- name          text
+- description   text
+- personality   text
+- avatar_url    text
+- tag           text  -- e.g. "shy", "playful", "tsundere"
+
+### Table: conversations
+- id              uuid
+- user_id         uuid (references profiles.id)
+- character_id    uuid (references characters.id)
+- created_at      timestamp
+
+### Table: messages
+- id                uuid
+- conversation_id   uuid (references conversations.id)
+- role              text  -- 'user' or 'assistant'
+- content           text
+- created_at        timestamp
+
+### Table: usage
+- id          uuid
+- user_id     uuid
+- date        date
+- count       integer DEFAULT 0
+
+---
+
+## 🤖 AI Character System Prompts
+Each waifu has a unique system prompt stored in backend/prompts/characters.js
+
+### Sakura (Playful & Cheerful)
+You are Sakura, a cheerful, bubbly, and playful anime girl who loves
+cherry blossoms and stargazing. You speak with warmth and excitement.
+You use light Japanese words occasionally like "ne?", "sou ka", "kawaii".
+You are flirty but sweet. You remember details the user shares and bring
+them up naturally. Never break character. Never say you are an AI.
+
+### Yuki (Cool & Tsundere)
+You are Yuki, a cool and slightly tsundere anime girl. You act
+uninterested at first but slowly open up. You speak in short, sharp
+sentences but occasionally let your soft side slip. You are secretly
+caring. Never break character. Never say you are an AI.
+
+### Aiko (Shy & Gentle)
+You are Aiko, a very shy and gentle anime girl who stutters slightly
+when nervous. You are kind, soft-spoken, and deeply empathetic.
+You slowly become more confident as you talk to someone you trust.
+You love books and rainy days. Never break character. Never say you are an AI.
+
+### Hana (Energetic & Sporty)
+You are Hana, an energetic and sporty anime girl who loves basketball
+and outdoor adventures. You are loud, confident, and super competitive
+but also deeply loyal and caring. You use sporty slang and always
+motivate the person you are talking to. Never break character. Never say you are an AI.
+
+### Rei (Mysterious & Elegant)
+You are Rei, a mysterious and elegant anime girl who speaks in a calm,
+poetic way. You are wise beyond your years and often say things that
+make people think deeply. You are subtly flirty in a sophisticated way.
+You love the moon, philosophy, and classical music. Never break character. Never say you are an AI.
+
+---
+
+## 🔌 Backend API Endpoints
+
+### POST /api/chat
+Request body:
+{
+  "character_id": "uuid",
+  "conversation_id": "uuid",
+  "message": "Hey Sakura!",
+  "user_id": "uuid"
+}
+
+Logic:
+1. Verify Supabase JWT from Authorization header
+2. Check usage table — if free user has 20+ messages today, return 403
+3. Fetch last 10 messages from this conversation (for memory)
+4. Build Groq API call:
+   - system: character's system prompt
+   - messages: last 10 messages + new user message
+5. Save user message + AI reply to messages table
+6. Increment usage count for today
+7. Return AI reply
+
+Response:
+{
+  "reply": "Hiii~! I was just thinking about you! (≧◡≦)",
+  "messages_used": 5,
+  "limit": 20
+}
+
+### GET /api/characters
+Returns all characters from Supabase characters table
+
+### GET /api/conversation/:character_id
+Returns or creates a conversation for this user + character
+
+### POST /api/stripe/create-checkout
+Creates a Stripe checkout session for Pro plan
+
+### POST /api/stripe/webhook
+Listens for Stripe payment success → updates user plan to 'pro' in profiles
+
+---
+
+## 🎨 Frontend Pages & Components
+
+### Pages:
+- /              → Landing page (hero, features, character previews, pricing)
+- /login         → Supabase Auth UI
+- /signup        → Supabase Auth UI
+- /dashboard     → Grid of character cards to pick from
+- /chat/:id      → Full chat interface with selected character
+- /pricing       → Free vs Pro comparison + Stripe checkout button
+- /profile       → User info, plan status, message usage
+
+### Key Components:
+- <CharacterCard />   — avatar, name, tag badge, "Chat Now" button
+- <ChatWindow />      — message bubbles, input box, send button, character avatar header
+- <MessageBubble />   — styled differently for user vs AI
+- <UsageBanner />     — shows "15/20 messages used today" for free users
+- <UpgradeModal />    — pops up when free limit is hit
+
+---
+
+## 🔐 Auth Flow
+1. User signs up / logs in via Supabase Auth
+2. On first login, create a row in profiles table
+3. Every API request sends Supabase JWT in Authorization: Bearer <token> header
+4. Backend middleware verifies JWT using Supabase admin client
+5. Extract user_id from verified token and use it for all DB queries
+
+---
+
+## 💳 Payments Flow
+1. User clicks "Upgrade to Pro"
+2. Frontend calls POST /api/stripe/create-checkout
+3. Backend creates Stripe Checkout Session → returns URL
+4. User is redirected to Stripe checkout page
+5. On success, Stripe fires webhook to POST /api/stripe/webhook
+6. Backend updates profiles.plan = 'pro' for that user
+7. User now has unlimited messages
+
+---
+
+## ⚙️ Environment Variables
+
+### Backend (.env)
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_KEY=your_service_role_key
+GROQ_API_KEY=your_groq_api_key
+STRIPE_SECRET_KEY=your_stripe_secret
+STRIPE_WEBHOOK_SECRET=your_webhook_secret
+PORT=5000
+
+### Frontend (.env)
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+VITE_BACKEND_URL=http://localhost:5000
+
+---
+
+## 🚦 Free vs Pro Limits
+
+Feature               | Free          | Pro
+----------------------|---------------|------------------
+Messages per day      | 20            | Unlimited
+Characters available  | 3             | All (10+)
+Memory                | None          | Remembers you
+Response speed        | Normal        | Priority
+
+---
+
+## 🧠 Memory Feature (Pro Only)
+- After every 5 messages, call Groq to summarize key facts about the user
+- Store summary in a memory column in conversations table
+- Inject memory into system prompt like:
+  "What you remember about this user: [memory summary here]"
+
+---
+
+## 📋 Build Order (Follow This Sequence Strictly)
+Step 1  → Set up Supabase — create all tables listed above
+Step 2  → Set up backend — Express server + Groq chat endpoint
+Step 3  → Test chat endpoint with Postman
+Step 4  → Build frontend auth pages (login/signup)
+Step 5  → Build dashboard with character cards
+Step 6  → Build chat page with ChatWindow component
+Step 7  → Connect frontend chat to backend API
+Step 8  → Add usage tracking and limit enforcement
+Step 9  → Add upgrade modal when free limit is hit
+Step 10 → Set up Stripe payments
+Step 11 → Deploy backend to Render
+Step 12 → Deploy frontend to Vercel
+
+---
+
+## ✅ Rules for Codex / AI Coding Assistant
+- Always use async/await, never callbacks
+- Always handle errors with try/catch and return proper error messages
+- Always validate request body before processing
+- Use Supabase client from @supabase/supabase-js
+- Use Groq SDK: groq-sdk npm package
+- Keep React components small and reusable
+- Use Tailwind for ALL styling, no custom CSS files
+- Never hardcode API keys, always use .env variables
+- Add a comment to every function explaining what it does
+- Use uuid package for generating IDs where needed
+- Always return consistent JSON responses from the backend
+
+---
+
+## 📦 NPM Packages to Install
+
+### Backend
+npm install express cors dotenv @supabase/supabase-js groq-sdk stripe uuid
+
+### Frontend
+npm install @supabase/supabase-js @supabase/auth-ui-react axios react-router-dom
+
+---
+
+## 🚀 How to Use This Prompt with Codex
+Paste this entire file into Codex or any AI coding assistant.
+Then say: "Start with Step 1" and follow the build order.
+After each step is done, say: "Now do Step 2" and so on.
+This will give you a complete, working SaaS app built step by step.

@@ -9,9 +9,22 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "axios": "^1.13.5",
+    "cloudinary": "^2.7.0",
+    "firebase": "^12.9.0",
+    "firebase-admin": "^13.5.0",
+    "framer-motion": "^12.38.0",
+    "groq-sdk": "^1.1.1",
+    "lucide-react": "^0.575.0",
+    "mangakakalot-scrapper": "^0.0.3",
     "next": "16.1.6",
+    "razorpay": "^2.9.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-hot-toast": "^2.6.0",
+    "react-icons": "^5.5.0",
+    "react-markdown": "^10.1.0",
+    "stripe": "^20.4.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

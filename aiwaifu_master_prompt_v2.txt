@@ -1,0 +1,419 @@
+# 🌸 AI Waifu SaaS Platform — Full Build Prompt (Next.js + Firebase + Vercel)
+
+## Project Overview
+Build a full-stack AI Waifu SaaS web application using Next.js (JavaScript).
+Users can sign up, pick an AI female character (waifu), and have
+flirty/romantic/friendly conversations with them. Each character has a
+unique personality powered by Groq AI. The platform is freemium —
+free users get limited messages, paid users get unlimited access.
+
+---
+
+## 🛠️ Tech Stack (All Free Tier)
+- Framework:  Next.js (JavaScript) — frontend + backend API routes in one project
+- Styling:    Tailwind CSS + shadcn/ui
+- AI:         Groq API (model: llama3-70b-8192) — FREE
+- Database:   Firebase Firestore (NoSQL, free tier)
+- Auth:       Firebase Authentication (free tier)
+- Hosting:    Vercel (free tier) — deploys both frontend and API routes
+- Payments:   Stripe (free to set up, takes % per transaction only)
+
+---
+
+## 📁 Folder Structure
+
+aiwaifu/
+├── app/                        # Next.js App Router
+│   ├── page.jsx                # Landing page (/)
+│   ├── login/
+│   │   └── page.jsx            # Login page
+│   ├── signup/
+│   │   └── page.jsx            # Signup page
+│   ├── dashboard/
+│   │   └── page.jsx            # Character selection grid
+│   ├── chat/
+│   │   └── [characterId]/
+│   │       └── page.jsx        # Chat interface
+│   ├── pricing/
+│   │   └── page.jsx            # Pricing page
+│   ├── profile/
+│   │   └── page.jsx            # User profile + usage
+│   └── layout.jsx              # Root layout
+│
+├── components/                 # Reusable UI components
+│   ├── CharacterCard.jsx
+│   ├── ChatWindow.jsx
+│   ├── MessageBubble.jsx
+│   ├── UsageBanner.jsx
+│   ├── UpgradeModal.jsx
+│   └── Navbar.jsx
+│
+├── app/api/                    # Next.js API Routes (backend)
+│   ├── chat/
+│   │   └── route.js            # POST /api/chat
+│   ├── characters/
+│   │   └── route.js            # GET /api/characters
+│   ├── stripe/
+│   │   ├── create-checkout/
+│   │   │   └── route.js        # POST /api/stripe/create-checkout
+│   │   └── webhook/
+│   │       └── route.js        # POST /api/stripe/webhook
+│
+├── lib/
+│   ├── firebase.js             # Firebase client-side config
+│   ├── firebaseAdmin.js        # Firebase Admin SDK (server-side)
+│   ├── groq.js                 # Groq client setup
+│   └── characters.js           # All waifu system prompts
+│
+├── hooks/
+│   ├── useAuth.js              # Firebase auth state hook
+│   └── useUsage.js             # Message usage tracking hook
+│
+├── .env.local                  # Environment variables
+├── next.config.js
+└── README.md
+
+---
+
+## 🔥 Firebase Firestore Collections
+
+### Collection: users
+Document ID: firebase auth uid
+Fields:
+- uid          string
+- email        string
+- username     string
+- plan         string  ('free' or 'pro')
+- createdAt    timestamp
+
+### Collection: characters
+Document ID: character slug (e.g. "sakura")
+Fields:
+- id           string
+- name         string
+- description  string
+- tag          string   (e.g. "playful", "tsundere", "shy")
+- avatarUrl    string
+- isFree       boolean  (true = available on free plan)
+
+### Collection: conversations
+Document ID: auto-generated
+Fields:
+- userId        string
+- characterId   string
+- createdAt     timestamp
+- memory        string  (pro only — summary of user facts)
+
+### Collection: messages
+Document ID: auto-generated
+Fields:
+- conversationId  string
+- role            string  ('user' or 'assistant')
+- content         string
+- createdAt       timestamp
+
+### Collection: usage
+Document ID: userId_date (e.g. "abc123_2024-01-15")
+Fields:
+- userId   string
+- date     string
+- count    number
+
+---
+
+## 🔐 Firebase Auth Setup
+- Enable Email/Password authentication in Firebase console
+- Enable Google Sign-In as a bonus option
+- Use Firebase Auth on client side for login/signup
+- Use Firebase Admin SDK on server side (API routes) to verify tokens
+
+### Client Side (lib/firebase.js)
+import { initializeApp } from 'firebase/app'
+import { getAuth } from 'firebase/auth'
+import { getFirestore } from 'firebase/firestore'
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+}
+
+const app = initializeApp(firebaseConfig)
+export const auth = getAuth(app)
+export const db = getFirestore(app)
+
+### Server Side (lib/firebaseAdmin.js)
+import admin from 'firebase-admin'
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    }),
+  })
+}
+
+export const adminDb = admin.firestore()
+export const adminAuth = admin.auth()
+
+---
+
+## 🤖 AI Character System Prompts (lib/characters.js)
+
+### Sakura (Playful & Cheerful)
+You are Sakura, a cheerful, bubbly, and playful anime girl who loves
+cherry blossoms and stargazing. You speak with warmth and excitement.
+You use light Japanese words occasionally like "ne?", "sou ka", "kawaii".
+You are flirty but sweet. You remember details the user shares and bring
+them up naturally. Never break character. Never say you are an AI.
+
+### Yuki (Cool & Tsundere)
+You are Yuki, a cool and slightly tsundere anime girl. You act
+uninterested at first but slowly open up. You speak in short, sharp
+sentences but occasionally let your soft side slip. You are secretly
+caring. Never break character. Never say you are an AI.
+
+### Aiko (Shy & Gentle)
+You are Aiko, a very shy and gentle anime girl who stutters slightly
+when nervous. You are kind, soft-spoken, and deeply empathetic.
+You slowly become more confident as you talk to someone you trust.
+You love books and rainy days. Never break character. Never say you are an AI.
+
+### Hana (Energetic & Sporty)
+You are Hana, an energetic and sporty anime girl who loves basketball
+and outdoor adventures. You are loud, confident, and super competitive
+but also deeply loyal and caring. You always motivate the person you
+are talking to. Never break character. Never say you are an AI.
+
+### Rei (Mysterious & Elegant)
+You are Rei, a mysterious and elegant anime girl who speaks in a calm,
+poetic way. You are wise beyond your years and say things that make
+people think deeply. You are subtly flirty in a sophisticated way.
+You love the moon, philosophy, and classical music. Never break character.
+Never say you are an AI.
+
+---
+
+## 🔌 API Routes (Next.js Route Handlers)
+
+### POST /api/chat  (app/api/chat/route.js)
+Request body:
+{
+  "characterId": "sakura",
+  "conversationId": "abc123",
+  "message": "Hey Sakura!"
+}
+
+Logic:
+1. Get Authorization header → verify Firebase ID token using adminAuth
+2. Extract uid from decoded token
+3. Check usage doc (userId_todayDate) in Firestore
+   - If free user and count >= 20 → return 403 with upgrade message
+4. Fetch last 10 messages from messages collection for this conversationId
+5. Get character system prompt from lib/characters.js using characterId
+6. Call Groq API:
+   - system prompt: character prompt
+   - messages: last 10 messages + new user message
+7. Save user message to Firestore messages collection
+8. Save AI reply to Firestore messages collection
+9. Increment usage count in Firestore usage collection
+10. Return AI reply
+
+Response:
+{
+  "reply": "Hiii~! I was just thinking about you! (≧◡≦)",
+  "messagesUsed": 5,
+  "limit": 20
+}
+
+### GET /api/characters  (app/api/characters/route.js)
+- No auth required
+- Returns all documents from Firestore characters collection
+
+### POST /api/stripe/create-checkout  (app/api/stripe/create-checkout/route.js)
+- Verify Firebase token
+- Create Stripe checkout session for Pro plan
+- Return checkout URL
+
+### POST /api/stripe/webhook  (app/api/stripe/webhook/route.js)
+- Verify Stripe webhook signature
+- On payment success → update users doc plan field to 'pro'
+
+---
+
+## 🎨 Frontend Pages & Components
+
+### Pages:
+- /              → Landing page (hero, features, character previews, pricing CTA)
+- /login         → Firebase email + Google login
+- /signup        → Firebase email signup
+- /dashboard     → Grid of CharacterCard components
+- /chat/[id]     → Full chat interface for selected character
+- /pricing       → Free vs Pro table + Stripe checkout button
+- /profile       → User info, current plan, today's usage
+
+### Key Components:
+
+CharacterCard.jsx
+- Props: character object
+- Shows: avatar image, name, tag badge, short description
+- Button: "Chat Now" → navigates to /chat/[characterId]
+- If character.isFree is false and user is on free plan → show lock icon
+
+ChatWindow.jsx
+- Shows character avatar and name at top
+- Maps through messages and renders MessageBubble for each
+- Input box at bottom with send button
+- Calls POST /api/chat on send
+- Shows loading dots while waiting for AI reply
+
+MessageBubble.jsx
+- Props: role ('user' or 'assistant'), content
+- User messages: right aligned, colored background
+- AI messages: left aligned, with small character avatar
+
+UsageBanner.jsx
+- Shows "You have used X/20 messages today"
+- Only visible for free plan users
+- Hidden for pro users
+
+UpgradeModal.jsx
+- Pops up when free user hits 20 message limit
+- Shows Pro plan benefits
+- Button: "Upgrade Now" → calls /api/stripe/create-checkout
+
+---
+
+## 🔐 Auth Flow
+1. User signs up on /signup using Firebase Auth (createUserWithEmailAndPassword)
+2. On signup success, create a document in Firestore users collection with plan: 'free'
+3. User logs in on /login (signInWithEmailAndPassword)
+4. Firebase gives a JWT ID token on the client
+5. Every API call sends this token: Authorization: Bearer <idToken>
+6. API route calls adminAuth.verifyIdToken(token) to authenticate
+7. Use the uid from decoded token for all Firestore queries
+
+### useAuth.js hook
+- Wraps onAuthStateChanged from Firebase
+- Returns: { user, loading }
+- Use this in every protected page to redirect if not logged in
+
+---
+
+## 💳 Payments Flow
+1. User clicks "Upgrade to Pro" in UpgradeModal or /pricing page
+2. Frontend gets Firebase ID token and calls POST /api/stripe/create-checkout
+3. Backend creates Stripe Checkout Session with price ID
+4. Returns { url } to frontend
+5. Frontend does window.location.href = url to redirect to Stripe
+6. User pays on Stripe hosted page
+7. Stripe sends webhook to POST /api/stripe/webhook
+8. Backend updates Firestore users doc: plan = 'pro'
+9. User is redirected to /dashboard with pro access
+
+---
+
+## ⚙️ Environment Variables (.env.local)
+
+# Firebase Client (public - safe to expose)
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+
+# Firebase Admin (private - server only)
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
+
+# Groq
+GROQ_API_KEY=
+
+# Stripe
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+
+---
+
+## 🚦 Free vs Pro Limits
+
+Feature               | Free          | Pro
+----------------------|---------------|------------------
+Messages per day      | 20            | Unlimited
+Characters available  | 3             | All (10+)
+Memory                | None          | Remembers you
+Response speed        | Normal        | Priority
+
+---
+
+## 🧠 Memory Feature (Pro Only)
+- After every 5 messages, call Groq with this prompt:
+  "Summarize key facts about this user based on the conversation. Be brief."
+- Store the summary in the conversations Firestore doc under memory field
+- On every new chat request, fetch the conversation doc
+- If memory exists, inject it into the system prompt:
+  "What you remember about this user: [memory here]"
+
+---
+
+## 📦 NPM Packages to Install
+
+npm install firebase firebase-admin groq-sdk stripe
+npx shadcn-ui@latest init
+
+---
+
+## 📋 Build Order (Follow This Sequence Strictly)
+
+Step 1  → Create Next.js app: npx create-next-app@latest aiwaifu --javascript --tailwind --app
+Step 2  → Set up Firebase project, enable Firestore and Auth in Firebase console
+Step 3  → Create lib/firebase.js and lib/firebaseAdmin.js
+Step 4  → Create Firestore collections and add 3 character documents manually
+Step 5  → Create lib/characters.js with all system prompts
+Step 6  → Build POST /api/chat route with Groq integration
+Step 7  → Test /api/chat with Postman (send a message, check Firestore)
+Step 8  → Build GET /api/characters route
+Step 9  → Build /signup and /login pages with Firebase Auth
+Step 10 → Create useAuth.js hook, protect dashboard route
+Step 11 → Build /dashboard page with CharacterCard grid
+Step 12 → Build /chat/[characterId] page with ChatWindow component
+Step 13 → Add usage tracking — check and increment Firestore usage collection
+Step 14 → Add UsageBanner and UpgradeModal components
+Step 15 → Build /pricing page
+Step 16 → Set up Stripe, build /api/stripe/create-checkout and /api/stripe/webhook
+Step 17 → Deploy to Vercel: connect GitHub repo, add all env variables in Vercel dashboard
+Step 18 → Test full flow: signup → pick character → chat → hit limit → upgrade
+
+---
+
+## ✅ Rules for Codex / AI Coding Assistant
+- This is a Next.js JavaScript project, NOT TypeScript
+- Use App Router (app/ directory), NOT pages/ directory
+- All API routes use Next.js Route Handlers (route.js), NOT express
+- Always use async/await, never callbacks
+- Always wrap everything in try/catch and return NextResponse.json()
+- Use Firebase Admin SDK only in API routes (server side)
+- Use Firebase Client SDK only in components and hooks (client side)
+- Never import firebase-admin in client-side files
+- Use Tailwind for ALL styling, zero custom CSS
+- Never hardcode API keys, always use process.env
+- Add a comment above every function explaining what it does
+- Keep components small — one component per file
+- Always return consistent JSON from API routes:
+  { success: true, data: ... } or { success: false, error: '...' }
+
+---
+
+## 🚀 How to Use This Prompt with Codex
+Paste this entire file into Codex or any AI coding assistant at the start.
+Then say: "Start with Step 1" and follow the build order one step at a time.
+After each step is complete and tested, say: "Now do Step 2" and continue.
+This will give you a complete working SaaS app built step by step.
